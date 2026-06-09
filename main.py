@@ -154,7 +154,10 @@ async def uyum(interaction: discord.Interaction, hedef_kullanici: discord.Member
         print(e)
         await interaction.followup.send("Sistemsel bir anomali oluştu. Lütfen botun konsoluna (terminal) bak.")
 
-# --- BÖLÜM 2: AURA SİSTEMİ ---
+# --- BÖLÜM 2: AURA SİSTEMİ (TAMAMLANMIŞ) ---
+
+# Kullanıcıların mesaj zamanlarını tutmak için bir sözlük
+message_history = {}
 
 @bot.event
 async def on_message(message):
@@ -162,25 +165,39 @@ async def on_message(message):
         await bot.process_commands(message)
         return
 
-    # Veritabanında güncelle: Puanı artır VE last_seen tarihini "şimdi" yap
+    user_id = message.author.id
+    now = datetime.utcnow()
+
+    # --- ANTI-SPAM VE CEZA SİSTEMİ ---
+    if user_id not in message_history:
+        message_history[user_id] = []
+
+    # Son 60 saniyedeki mesajlarını filtrele
+    message_history[user_id] = [t for t in message_history[user_id] if (now - t).total_seconds() < 60]
+    message_history[user_id].append(now)
+
+    # Eğer 60 saniyede 15 mesajdan fazla attıysa
+    if len(message_history[user_id]) > 15:
+        # Puan düş
+        users_collection.update_one({"user_id": user_id}, {"$inc": {"aura_points": -50}})
+        await message.channel.send(f"⚠️ {message.author.mention}, Aura kasma çaban karanlıkta kayboldu. Spam cezası: **-50 Aura**.")
+        message_history[user_id] = [] 
+        return 
+
+    # --- NORMAL AURA SİSTEMİ ---
     user_data = users_collection.find_one_and_update(
-        {"user_id": message.author.id},
-        {
-            "$inc": {"aura_points": 1},
-            "$set": {"last_seen": datetime.utcnow()} # Tarih damgası ekledik
-        },
+        {"user_id": user_id},
+        {"$inc": {"aura_points": 1}, "$set": {"last_seen": now}},
         upsert=True,
         return_document=True
     )
 
     new_points = user_data["aura_points"]
 
-    # 2. Adım: Rol Kontrolü
-    # Kullanıcının puanına göre eşleşen rolü ver
+    # --- ROL KONTROL (Bu kısmı mutlaka ekle!) ---
     for threshold, role_id in ROLE_THRESHOLDS.items():
         if new_points >= threshold:
             role = message.guild.get_role(role_id)
-            # Rol sunucuda varsa ve kullanıcıda bu rol henüz yoksa ver
             if role and role not in message.author.roles:
                 try:
                     await message.author.add_roles(role)
@@ -188,9 +205,8 @@ async def on_message(message):
                 except Exception as e:
                     print(f"Rol verme hatası: {e}")
 
-    # Slash komutlarını ve prefix komutlarını bozmamak için bu satır şart
     await bot.process_commands(message)
-
+    
 # Klasik prefix (komut ön eki) ile çalışan aura komutu
 @bot.command(name="aura")
 async def aura(ctx):
@@ -201,18 +217,19 @@ async def aura(ctx):
     else:
         await ctx.send("Henüz Aura'n kaydedilmemiş, biraz daha aktif olmalısın.")
 
-# --- BÖLÜM 3: KEHANET SİSTEMİ (UNVAN FARKINDALIĞI) ---
+# --- BÖLÜM 3: KEHANET SİSTEMİ (NİHAİ DÜZELTME) ---
 @bot.tree.command(name="kehanet", description="REIGN sisteminden karanlık ve mistik bir fısıltı al.")
+@app_commands.checks.cooldown(1, 60, key=lambda i: i.user.id) # 1 kullanıcı 60 saniyede 1 kez kullanabilir
 async def kehanet(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=False)
 
-    # 1. Veritabanından Aura puanını çek
+    # 1. Veri Hazırlığı
     user_data = users_collection.find_one({"user_id": interaction.user.id})
     aura_points = user_data.get("aura_points", 0) if user_data else 0
-
-    # 2. Kullanıcının rollerini al (sadece isimleri, @everyone hariç)
+    
+    # Rolleri al, ama çok uzunsa botu yormamak için ilk 5 tanesini al
     user_roles = [role.name for role in interaction.user.roles if role.name != "@everyone"]
-    roles_str = ", ".join(user_roles)
+    roles_str = ", ".join(user_roles[:5])
 
     # 3. Mistik ve Rol Odaklı Prompt
     prompt = f"""
@@ -250,13 +267,21 @@ async def kehanet(interaction: discord.Interaction):
             description=f"*{kehanet_metni}*",
             color=0x2b2b2b 
         )
-        embed.set_footer(text="REIGN Aura Kehaneti | Aura: {aura_points}")
+        # BURASI DÜZELTİLDİ: 'f' eklendi
+        embed.set_footer(text=f"REIGN Aura Kehaneti | Aura: {aura_points}")
         
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
-        print(f"Kehanet hatası: {e}")
-        await interaction.followup.send("Karanlık şu an sessizliğini koruyor...")
+        # Hatanın ne olduğunu anlaman için loglara yazdırıyoruz
+        print(f"DEBUG - Kehanet hatası: {e}") 
+        await interaction.followup.send("Karanlık şu an sessizliğini koruyor... (Sistem bir anomaliyle karşılaştı, konsolu kontrol et.)")
+
+# Hata yönetimi (cooldown için burası)
+@kehanet.error
+async def kehanet_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.CommandOnCooldown):
+        await interaction.followup.send(f"⏳ Karanlık şu an meşgul, kehanet için **{int(error.retry_after)} saniye** beklemen gerekiyor.")
 
 if __name__ == "__main__":
     keep_alive()  # Botu çalıştırmadan önce web sunucusunu aç
