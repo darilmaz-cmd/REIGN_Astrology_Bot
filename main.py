@@ -27,6 +27,13 @@ client = MongoClient(mongo_uri)
 db = client['ReignBotDB'] 
 users_collection = db['Users']
 
+# --- ROL EŞLEŞTİRME TABLOSU ---
+# Puan Barajı : Rol ID (Sağ tıklayıp 'Kimliği Kopyala' dediğin ID'yi buraya yapıştır)
+ROLE_THRESHOLDS = {
+    100: 1513319309483573420,  # Örn: 100 puanda verilecek rol
+    500: 1513319170639528046   # Örn: 500 puanda verilecek rol
+}
+
 # --- GİZLİ ANAHTARLAR ---
 # Şifreleri artık kodun içine yazmıyoruz, sistemin kendi ayarlarından çekeceğiz
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -140,29 +147,35 @@ async def uyum(interaction: discord.Interaction, hedef_kullanici: discord.Member
 
 @bot.event
 async def on_message(message):
-    # Botun kendi mesajlarını sayma
+    # Botun kendi mesajlarını sayma, sadece komutları işlet
     if message.author.bot:
-        await bot.process_commands(message) # Komutlar çalışmaya devam etsin
+        await bot.process_commands(message)
         return
 
-    # Kullanıcıyı veritabanında bul
-    user_data = users_collection.find_one({"user_id": message.author.id})
+    # 1. Adım: Veritabanında güncelleme yap (upsert=True: yoksa oluştur, varsa güncelle)
+    user_data = users_collection.find_one_and_update(
+        {"user_id": message.author.id},
+        {"$inc": {"aura_points": 1}},
+        upsert=True,
+        return_document=True
+    )
 
-    if user_data:
-        # Varsa puanını 1 artır
-        users_collection.update_one(
-            {"user_id": message.author.id},
-            {"$inc": {"aura_points": 1}}
-        )
-    else:
-        # Yoksa yeni kayıt oluştur
-        users_collection.insert_one({
-            "user_id": message.author.id,
-            "username": message.author.name,
-            "aura_points": 1
-        })
+    new_points = user_data["aura_points"]
 
-    # Slash komutlarını bozmamak için bu satır şart
+    # 2. Adım: Rol Kontrolü
+    # Kullanıcının puanına göre eşleşen rolü ver
+    for threshold, role_id in ROLE_THRESHOLDS.items():
+        if new_points >= threshold:
+            role = message.guild.get_role(role_id)
+            # Rol sunucuda varsa ve kullanıcıda bu rol henüz yoksa ver
+            if role and role not in message.author.roles:
+                try:
+                    await message.author.add_roles(role)
+                    await message.channel.send(f"🌌 {message.author.mention}, Aura seviyen yükseldi ve **{role.name}** rolünü kazandın!")
+                except Exception as e:
+                    print(f"Rol verme hatası: {e}")
+
+    # Slash komutlarını ve prefix komutlarını bozmamak için bu satır şart
     await bot.process_commands(message)
 
 # Klasik prefix (komut ön eki) ile çalışan aura komutu
