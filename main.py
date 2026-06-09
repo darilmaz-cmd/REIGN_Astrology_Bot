@@ -31,8 +31,8 @@ users_collection = db['Users']
 # --- ROL EŞLEŞTİRME TABLOSU ---
 # Puan Barajı : Rol ID (Sağ tıklayıp 'Kimliği Kopyala' dediğin ID'yi buraya yapıştır)
 ROLE_THRESHOLDS = {
-    100: 1513319309483573420,  # Örn: 100 puanda verilecek rol
-    500: 1513319170639528046   # Örn: 500 puanda verilecek rol
+    500: 1513319309483573420,  # Örn: 100 puanda verilecek rol
+    1000: 1513319170639528046   # Örn: 500 puanda verilecek rol
 }
 
 # --- GİZLİ ANAHTARLAR ---
@@ -190,6 +190,40 @@ async def aura(ctx):
         await ctx.send(f"🌌 {ctx.author.name}, şu anki Aura seviyen: **{puan}**.")
     else:
         await ctx.send("Henüz Aura'n kaydedilmemiş, biraz daha aktif olmalısın.")
+
+# --- BÖLÜM 3: KEHANET SİSTEMİ ---
+@bot.tree.command(name="kehanet", description="REIGN sisteminden karanlık, felsefi ve gizemli bir kehanet al.")
+async def kehanet(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=False)
+
+    prompt = """
+    Sen REIGN evreninin kadim, karanlık ve entelektüel bir kahinisin. 
+    Kullanıcıya tek bir cümlelik, biraz tehditkar, biraz felsefi ama çok ağırbaşlı bir kehanet ver. 
+    Karanlık ve gizemli havayı yansıt. 
+    Sakın 'Bugün şanslısın' gibi basit şeyler söyleme. İnsanların üzerinde düşüneceği, onları biraz huzursuz edecek ama asil hissettirecek bir kehanet kur.
+    Nadiren de olsa insanların her gün ve o kullanıcının yapmış olabileceği bir şeyi söyleyerek inandırıcılığı arttır.
+    Cevabın en fazla 2 cümle olsun.
+    """
+
+    try:
+        response = await ai_client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        kehanet_metni = response.text.strip()
+
+        embed = discord.Embed(
+            title="🌒 Karanlığın Fısıltısı",
+            description=f"*{kehanet_metni}*",
+            color=0x2b2b2b # Koyu bir renk
+        )
+        embed.set_footer(text="REIGN Sistem Kehaneti")
+        
+        await interaction.followup.send(embed=embed)
+
+    except Exception as e:
+        print(f"Kehanet hatası: {e}")
+        await interaction.followup.send("Karanlık şu an sessizliğini koruyor. (Sistem anomaliyi çözemedi.)")
 
 if __name__ == "__main__":
     keep_alive()  # Botu çalıştırmadan önce web sunucusunu aç
