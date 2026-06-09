@@ -19,7 +19,13 @@ from discord.ext import commands, tasks
 from discord import app_commands
 from google import genai 
 import re 
-import os  # <--- Bunu mutlaka ekle!
+import os
+from pymongo import MongoClient
+
+mongo_uri = os.getenv('MONGO_URI')
+client = MongoClient(mongo_uri)
+db = client['ReignBotDB'] 
+users_collection = db['Users']
 
 # --- GİZLİ ANAHTARLAR ---
 # Şifreleri artık kodun içine yazmıyoruz, sistemin kendi ayarlarından çekeceğiz
@@ -129,6 +135,45 @@ async def uyum(interaction: discord.Interaction, hedef_kullanici: discord.Member
         print(f"\n--- 🔴 YAPAY ZEKA BAĞLANTI HATASI ---")
         print(e)
         await interaction.followup.send("Sistemsel bir anomali oluştu. Lütfen botun konsoluna (terminal) bak.")
+
+# --- BÖLÜM 2: AURA SİSTEMİ ---
+
+@bot.event
+async def on_message(message):
+    # Botun kendi mesajlarını sayma
+    if message.author.bot:
+        await bot.process_commands(message) # Komutlar çalışmaya devam etsin
+        return
+
+    # Kullanıcıyı veritabanında bul
+    user_data = users_collection.find_one({"user_id": message.author.id})
+
+    if user_data:
+        # Varsa puanını 1 artır
+        users_collection.update_one(
+            {"user_id": message.author.id},
+            {"$inc": {"aura_points": 1}}
+        )
+    else:
+        # Yoksa yeni kayıt oluştur
+        users_collection.insert_one({
+            "user_id": message.author.id,
+            "username": message.author.name,
+            "aura_points": 1
+        })
+
+    # Slash komutlarını bozmamak için bu satır şart
+    await bot.process_commands(message)
+
+# Klasik prefix (komut ön eki) ile çalışan aura komutu
+@bot.command(name="aura")
+async def aura(ctx):
+    user_data = users_collection.find_one({"user_id": ctx.author.id})
+    if user_data:
+        puan = user_data.get("aura_points", 0)
+        await ctx.send(f"🌌 {ctx.author.name}, şu anki Aura seviyen: **{puan}**.")
+    else:
+        await ctx.send("Henüz Aura'n kaydedilmemiş, biraz daha aktif olmalısın.")
 
 if __name__ == "__main__":
     keep_alive()  # Botu çalıştırmadan önce web sunucusunu aç
