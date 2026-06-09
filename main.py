@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask
 from threading import Thread
 
@@ -147,15 +148,17 @@ async def uyum(interaction: discord.Interaction, hedef_kullanici: discord.Member
 
 @bot.event
 async def on_message(message):
-    # Botun kendi mesajlarını sayma, sadece komutları işlet
     if message.author.bot:
         await bot.process_commands(message)
         return
 
-    # 1. Adım: Veritabanında güncelleme yap (upsert=True: yoksa oluştur, varsa güncelle)
+    # Veritabanında güncelle: Puanı artır VE last_seen tarihini "şimdi" yap
     user_data = users_collection.find_one_and_update(
         {"user_id": message.author.id},
-        {"$inc": {"aura_points": 1}},
+        {
+            "$inc": {"aura_points": 1},
+            "$set": {"last_seen": datetime.utcnow()} # Tarih damgası ekledik
+        },
         upsert=True,
         return_document=True
     )
