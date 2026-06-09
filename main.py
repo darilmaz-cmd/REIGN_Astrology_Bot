@@ -201,18 +201,28 @@ async def aura(ctx):
     else:
         await ctx.send("Henüz Aura'n kaydedilmemiş, biraz daha aktif olmalısın.")
 
-# --- BÖLÜM 3: KEHANET SİSTEMİ ---
+# --- BÖLÜM 3: KEHANET SİSTEMİ (GÜNCELLENMİŞ) ---
 @bot.tree.command(name="kehanet", description="REIGN sisteminden karanlık, felsefi ve gizemli bir kehanet al.")
 async def kehanet(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=False)
 
-    prompt = """
-    Sen REIGN evreninin kadim, karanlık ve entelektüel bir kahinisin. 
-    Kullanıcıya tek bir cümlelik, biraz tehditkar, biraz felsefi ama çok ağırbaşlı bir kehanet ver. 
-    Karanlık ve gizemli havayı yansıt. 
-    Sakın 'Bugün şanslısın' gibi basit şeyler söyleme. İnsanların üzerinde düşüneceği, onları biraz huzursuz edecek ama asil hissettirecek bir kehanet kur.
-    Nadiren de olsa insanların her gün ve o kullanıcının yapmış olabileceği bir şeyi söyleyerek inandırıcılığı arttır.
-    Cevabın en fazla 2 cümle olsun.
+    # 1. Veritabanından kullanıcının Aura puanını çek
+    user_data = users_collection.find_one({"user_id": interaction.user.id})
+    aura_points = user_data.get("aura_points", 0) if user_data else 0
+
+    # 2. Gelişmiş, Snarky (Laf sokan) Prompt
+    prompt = f"""
+    Sen REIGN Discord sunucusunun, her şeyi gören, dijital bir kahinisin.
+    Kullanıcı: {interaction.user.display_name}
+    Aura Puanı: {aura_points}
+    
+    Görev: Kullanıcıya kısa, gizemli, hafif soğuk ve teknolojik-mistik bir kehanet ver.
+    Tonlama: 
+    - Hafif alaycı ve mesafeli bir ton kullan (örneğin: 'Hmm... ilginç').
+    - Aura puanını kehanetin bir parçası yap. Eğer puanı düşükse (örneğin < 200), 'huzursuz ve arayış içinde' olduğunu ima et. 
+    - Eğer puanı yüksekse (500-1000+), 'artık sistemin bir parçası olduğunu ve gücünü yansıttığını' söyle.
+    - Asla 'şanslısın' deme.
+    - Cevabın en fazla 2 cümle olsun ve doğrudan kullanıcıya hitap et.
     """
 
     try:
@@ -225,9 +235,9 @@ async def kehanet(interaction: discord.Interaction):
         embed = discord.Embed(
             title="🌒 Karanlığın Fısıltısı",
             description=f"*{kehanet_metni}*",
-            color=0x2b2b2b # Koyu bir renk
+            color=0x2b2b2b 
         )
-        embed.set_footer(text="REIGN Sistem Kehaneti")
+        embed.set_footer(text=f"REIGN Sistem Kehaneti | Aura: {aura_points}")
         
         await interaction.followup.send(embed=embed)
 
