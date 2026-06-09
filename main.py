@@ -31,8 +31,8 @@ users_collection = db['Users']
 # --- ROL EŞLEŞTİRME TABLOSU ---
 # Puan Barajı : Rol ID (Sağ tıklayıp 'Kimliği Kopyala' dediğin ID'yi buraya yapıştır)
 ROLE_THRESHOLDS = {
-    500: 1513319309483573420,  # Örn: 100 puanda verilecek rol
-    1000: 1513319170639528046   # Örn: 500 puanda verilecek rol
+    500: 1513319309483573420,  # Örn: 500 puanda verilecek rol
+    1000: 1513319170639528046   # Örn: 1000 puanda verilecek rol
 }
 
 # --- GİZLİ ANAHTARLAR ---
