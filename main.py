@@ -201,8 +201,8 @@ async def aura(ctx):
     else:
         await ctx.send("Henüz Aura'n kaydedilmemiş, biraz daha aktif olmalısın.")
 
-# --- BÖLÜM 3: KEHANET SİSTEMİ (GÜNCELLENMİŞ) ---
-@bot.tree.command(name="kehanet", description="REIGN sisteminden karanlık, felsefi ve gizemli bir kehanet al.")
+# --- BÖLÜM 3: KEHANET SİSTEMİ (GÜNCELLENMİŞ - MİSTİK TON) ---
+@bot.tree.command(name="kehanet", description="REIGN sisteminden karanlık ve mistik bir fısıltı al.")
 async def kehanet(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=False)
 
@@ -210,19 +210,21 @@ async def kehanet(interaction: discord.Interaction):
     user_data = users_collection.find_one({"user_id": interaction.user.id})
     aura_points = user_data.get("aura_points", 0) if user_data else 0
 
-    # 2. Gelişmiş, Snarky (Laf sokan) Prompt
+    # 2. Yeni Prompt: Daha Mistik, Daha Az Teknolojik
     prompt = f"""
-    Sen REIGN Discord sunucusunun, her şeyi gören, dijital bir kahinisin.
+    Sen REIGN evreninin gölgelerde yaşayan, hafif alaycı, esrarengiz ve kadim bir kahinisin.
     Kullanıcı: {interaction.user.display_name}
-    Aura Puanı: {aura_points}
-    
-    Görev: Kullanıcıya kısa, gizemli, hafif soğuk ve teknolojik-mistik bir kehanet ver.
-    Tonlama: 
-    - Hafif alaycı ve mesafeli bir ton kullan (örneğin: 'Hmm... ilginç').
-    - Aura puanını kehanetin bir parçası yap. Eğer puanı düşükse (örneğin < 200), 'huzursuz ve arayış içinde' olduğunu ima et. 
-    - Eğer puanı yüksekse (500-1000+), 'artık sistemin bir parçası olduğunu ve gücünü yansıttığını' söyle.
-    - Asla 'şanslısın' deme.
-    - Cevabın en fazla 2 cümle olsun ve doğrudan kullanıcıya hitap et.
+    Aura Gücü: {aura_points}
+
+    Görev: Kullanıcıya kısa, gizemli ve hafif tehditkar bir kehanet ver.
+    Kurallar:
+    - Mesajını yazarken sanki kullanıcıyla yüz yüze sohbet edermiş gibi yaz (Örn: 'Ah.. yine bir kehanet isteği mi, hmm.. hadi bakalım.. hmm.. sanki.. sanki bir şeyler var.. görebiliyorum.. o da ne? garip.. çok garip..').
+    - Asla teknolojik terimler (matriks, veri, dijital, sistem, analiz) kullanma fakat anlaşılabilir ol!
+    - Aura gücünü (puanı) kehanetin içinde sanki bir ruhsal enerji seviyesiymiş gibi doğal bir dille geçir (Örn: 'Ruhundaki 54 auralık o zayıf kıvılcım...').
+    - Alaycı ve iğneleyici olabilirsin, komik şeyler yazabilirsin, kasvetli olabilirsin veya enerjik ama yine gizemli olabilirsin. (Örn: 'Etrafındaki aptallar enerjini emiyor, odaklan' veya 'Gündemindeki o hamleyi yapma, sonu hüsran' gibi).
+    - Barnum etkisi kullan (herkesin hayatına uyabilecek ama kişiye özelmiş gibi hissettiren belirsiz kehanetler).
+    - Asla 'şanslısın' veya 'mutlu olacaksın' gibi basit şeyler söyleme.
+    - Cevabın en fazla 3-4 cümle olsun ve doğrudan kullanıcıya hitap et.
     """
 
     try:
@@ -237,13 +239,13 @@ async def kehanet(interaction: discord.Interaction):
             description=f"*{kehanet_metni}*",
             color=0x2b2b2b 
         )
-        embed.set_footer(text=f"REIGN Sistem Kehaneti | Aura: {aura_points}")
+        embed.set_footer(text="REIGN Aura Kehaneti") # İstediğin gibi güncellendi
         
         await interaction.followup.send(embed=embed)
 
     except Exception as e:
         print(f"Kehanet hatası: {e}")
-        await interaction.followup.send("Karanlık şu an sessizliğini koruyor. (Sistem anomaliyi çözemedi.)")
+        await interaction.followup.send("Karanlık şu an sessizliğini koruyor...")
 
 if __name__ == "__main__":
     keep_alive()  # Botu çalıştırmadan önce web sunucusunu aç
