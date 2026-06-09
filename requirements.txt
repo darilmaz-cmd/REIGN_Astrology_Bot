@@ -2,3 +2,5 @@ discord.py
 google-genai
 aiohttp
 flask
+pymongo
+dnspython
