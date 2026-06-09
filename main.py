@@ -71,6 +71,16 @@ bot = ReignBot()
 async def on_ready():
     print(f'✦ {bot.user} REIGN evrenine giriş yaptı. Sistem stabil.')
 
+# --- ACİL DURUM SENKRONİZASYON KOMUTU ---
+@bot.command(name="sync")
+async def sync(ctx):
+    # Bu komutu sadece sen (admin) kullanabilirsin
+    if ctx.author.id == 211215301059149824: # <--- Buraya KENDİ Discord ID'ni yaz!
+        await bot.tree.sync()
+        await ctx.send("✦ Slash komutları manuel olarak senkronize edildi!")
+    else:
+        await ctx.send("Bunu sadece botun sahibi kullanabilir.")
+
 # --- BÖLÜM 1: UYUM KOMUTU ---
 @bot.tree.command(name="uyum", description="İki kişinin güneş ve yükselen burçlarına göre REIGN yapay zeka uyum analizi yapar.")
 @app_commands.describe(hedef_kullanici="Uyumunu merak ettiğin kişiyi seç")
