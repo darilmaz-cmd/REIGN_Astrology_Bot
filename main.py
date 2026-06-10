@@ -301,20 +301,22 @@ async def on_message(message):
     user_id = message.author.id
     now = datetime.utcnow()
 
-    if user_id not in message_history:
-        message_history[user_id] = []
+    # EĞER MESAJ KUMARHANE KANALINDA ATILDIYSA SPAM KONTROLÜ YAPMA (Cezadan Muafiyet)
+    if message.channel.id != KUMARHANE_KANALI_ID:
+        if user_id not in message_history:
+            message_history[user_id] = []
 
-    # Son 60 saniyedeki mesajlarını filtrele
-    message_history[user_id] = [t for t in message_history[user_id] if (now - t).total_seconds() < 60]
-    message_history[user_id].append(now)
+        # Son 60 saniyedeki mesajlarını filtrele
+        message_history[user_id] = [t for t in message_history[user_id] if (now - t).total_seconds() < 60]
+        message_history[user_id].append(now)
 
-    # Eğer 60 saniyede 15 mesajdan fazla attıysa
-    if len(message_history[user_id]) > 15:
-        # Puan düş
-        users_collection.update_one({"user_id": user_id}, {"$inc": {"aura_points": -50}})
-        await message.channel.send(f"⚠️ {message.author.mention}, Aura kasma çaban karanlıkta kayboldu. Spam cezası: **-50 Aura**.")
-        message_history[user_id] = [] 
-        return 
+        # Eğer 60 saniyede 15 mesajdan fazla attıysa
+        if len(message_history[user_id]) > 15:
+            # Puan düş
+            users_collection.update_one({"user_id": user_id}, {"$inc": {"aura_points": -50}})
+            await message.channel.send(f"⚠️ {message.author.mention}, Aura kasma çaban karanlıkta kayboldu. Spam cezası: **-50 Aura**.")
+            message_history[user_id] = [] 
+            return 
 
     # --- NORMAL AURA SİSTEMİ ---
     user_data = users_collection.find_one_and_update(
@@ -339,15 +341,15 @@ async def on_message(message):
 
     await bot.process_commands(message)
     
-# Klasik prefix (komut ön eki) ile çalışan aura komutu
-@bot.command(name="aura")
-async def aura(ctx):
-    user_data = users_collection.find_one({"user_id": ctx.author.id})
+# Modern Slash ( / ) Komutuna Çevrilmiş Aura Sistemi
+@bot.tree.command(name="aura", description="Mevcut REIGN aura seviyeni gösterir.")
+async def aura(interaction: discord.Interaction):
+    user_data = users_collection.find_one({"user_id": interaction.user.id})
     if user_data:
         puan = user_data.get("aura_points", 0)
-        await ctx.send(f"🌌 {ctx.author.name}, şu anki Aura seviyen: **{puan}**.")
+        await interaction.response.send_message(f"🌌 {interaction.user.display_name}, şu anki Aura seviyen: **{puan}**.", ephemeral=False)
     else:
-        await ctx.send("Henüz Aura'n kaydedilmemiş, biraz daha aktif olmalısın.")
+        await interaction.response.send_message("Henüz Aura'n kaydedilmemiş, gölgelerde biraz daha aktif olmalısın.", ephemeral=True)
 
 # --- BÖLÜM 3: KEHANET SİSTEMİ (NİHAİ DÜZELTME) ---
 @bot.tree.command(name="kehanet", description="REIGN sisteminden karanlık ve mistik bir fısıltı al.")
@@ -732,8 +734,8 @@ async def reignyardim(interaction: discord.Interaction):
         inline=False
     )
     embed.add_field(
-        name="🌌 `!aura` & Pasif Aura Sistemi", 
-        value="Sohbet ettikçe gizlice Aura kazanırsın (Spam yaparsan -50 ceza yersin). `!aura` yazarak puanını görebilirsin. Eşikleri aşarak özel rollere ulaş.", 
+        name="🌌 `/aura` & Pasif Aura Sistemi", 
+        value="Sohbet ettikçe gizlice Aura kazanırsın (Spam yaparsan -50 ceza yersin). `/aura` yazarak puanını görebilirsin. Eşikleri aşarak özel rollere ulaş.", 
         inline=False
     )
     embed.add_field(
