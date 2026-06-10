@@ -337,7 +337,7 @@ async def on_message(message):
         message_history[user_id].append(now)
 
         # Eğer 60 saniyede 15 mesajdan fazla attıysa
-        if len(message_history[user_id]) > 15:
+        if len(message_history[user_id]) > 20:
             # Puan düş
             users_collection.update_one({"user_id": user_id}, {"$inc": {"aura_points": -50}})
             await message.channel.send(f"⚠️ {message.author.mention}, Aura kasma çaban karanlıkta kayboldu. Spam cezası: **-50 Aura**.")
