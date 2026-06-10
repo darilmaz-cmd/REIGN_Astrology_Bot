@@ -161,14 +161,40 @@ async def on_ready():
     print(f'✦ {bot.user} REIGN evrenine giriş yaptı. Sistem stabil.')
 
 # --- ACİL DURUM SENKRONİZASYON KOMUTU ---
-@bot.command(name="sync")
-async def sync(ctx):
-    # Bu komutu sadece sen (admin) kullanabilirsin
-    if ctx.author.id == 211215301059149824: # <--- Buraya KENDİ Discord ID'ni yaz!
+
+@bot.tree.command(name="sync", description="REIGN sistemindeki tüm slash komutlarını el ile Discord'a senkronize eder.")
+async def sync(interaction: discord.Interaction):
+    # Sadece senin Discord ID'n kullanabilir
+    if interaction.user.id == 211215301059149824:
         await bot.tree.sync()
-        await ctx.send("✦ Slash komutları manuel olarak senkronize edildi!")
+        await interaction.response.send_message("✦ REIGN sistemindeki tüm Slash komutları Discord sunucusuyla başarıyla senkronize edildi!", ephemeral=True)
     else:
-        await ctx.send("Bunu sadece botun sahibi kullanabilir.")
+        await interaction.response.send_message("⚠️ Bunu sadece sistemin kurucusu kullanabilir.", ephemeral=True)
+
+# --- SIRALAMA KOMUTU ---
+
+@bot.tree.command(name="siralama", description="REIGN evrenindeki en yüksek auraya sahip 15 kişiyi gösterir.")
+async def siralama(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=False)
+    
+    en_iyiler = users_collection.find().sort("aura_points", -1).limit(15)
+    
+    liste_metni = ""
+    sira = 1
+    for user in en_iyiler:
+        puan = user.get("aura_points", 0)
+        liste_metni += f"**{sira}.** <@{user['user_id']}> — *{puan} Aura*\n"
+        sira += 1
+
+    if not liste_metni:
+        liste_metni = "Henüz kimse gölgelerde yeterince iz bırakmadı."
+
+    embed = discord.Embed(
+        title="🏆 REIGN Aura Sıralaması",
+        description=f"İşte sistemin zirvesindeki 15 kişi:\n\n{liste_metni}",
+        color=0x2b2b2b
+    )
+    await interaction.followup.send(embed=embed)
 
 # --- BÖLÜM 1: UYUM KOMUTU ---
 @bot.tree.command(name="uyum", description="İki kişinin güneş ve yükselen burçlarına göre REIGN yapay zeka uyum analizi yapar.")
