@@ -325,7 +325,7 @@ async def on_message(message):
             
     # --- ANTI-SPAM VE CEZA SİSTEMİ ---
     user_id = message.author.id
-    now = datetime.utcnow()
+    now = datetime.datetime.utcnow() # HATA BURADAYDI, DÜZELTİLDİ
 
     # EĞER MESAJ KUMARHANE KANALINDA ATILDIYSA SPAM KONTROLÜ YAPMA (Cezadan Muafiyet)
     if message.channel.id != KUMARHANE_KANALI_ID:
@@ -345,14 +345,15 @@ async def on_message(message):
             return 
 
     # --- NORMAL AURA SİSTEMİ ---
-    user_data = users_collection.find_one_and_update(
+    # Veritabanının çökmesini engellemek için kod güncellendi
+    users_collection.update_one(
         {"user_id": user_id},
         {"$inc": {"aura_points": 1}, "$set": {"last_seen": now}},
-        upsert=True,
-        return_document=True
+        upsert=True
     )
 
-    new_points = user_data["aura_points"]
+    user_data = users_collection.find_one({"user_id": user_id})
+    new_points = user_data.get("aura_points", 0)
 
     # --- ROL KONTROL ---
     for threshold, role_id in ROLE_THRESHOLDS.items():
