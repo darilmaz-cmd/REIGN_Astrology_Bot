@@ -283,6 +283,236 @@ async def kehanet_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.CommandOnCooldown):
         await interaction.followup.send(f"⏳ Karanlık şu an meşgul, kehanet için **{int(error.retry_after)} saniye** beklemen gerekiyor.")
 
+# --- BÖLÜM 4: FRP / MACERA MOTORU ---
+
+# FRP oturumlarını hafızada tutacağımız sözlük
+frp_sessions = {}
+
+# 1. FRP OYUN İÇİ BUTONLARI (Sonraki Tur ve Bitir)
+class FRPGameView(discord.ui.View):
+    def __init__(self, host_id, channel_id):
+        super().__init__(timeout=None) # Zaman aşımı yok
+        self.host_id = host_id
+        self.channel_id = channel_id
+
+    @discord.ui.button(label="Sonraki Tur", style=discord.ButtonStyle.primary, custom_id="frp_next", emoji="🎲")
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.host_id:
+            return await interaction.response.send_message("Sadece oyunu başlatan kişi turu ilerletebilir.", ephemeral=True)
+        
+        session = frp_sessions.get(self.channel_id)
+        if not session or not session.get("is_active"):
+            return await interaction.response.send_message("Aktif bir oyun bulunamadı.", ephemeral=True)
+        
+        if not session["current_actions"]:
+            return await interaction.response.send_message("Hiç kimse hamle yapmadı! Oyuncuların `/do` komutunu kullanmasını bekle.", ephemeral=True)
+
+        await interaction.response.defer()
+        
+        # Hamleleri birleştir
+        hamleler_metni = "\n".join(session["current_actions"])
+        
+        prompt = f"""
+        Sen REIGN evreninin Zindan Ustasısın (Dungeon Master). 
+        Hikayenin şu anki durumu: {session['history']}
+        
+        Oyuncuların bu turdaki hamleleri:
+        {hamleler_metni}
+        
+        Görev:
+        1. Bu hamlelerin sonuçlarını mantıklı, acımasız ve karanlık bir şekilde anlat.
+        2. Bazı hamleler başarılı olsun, bazıları başarısız (zarlara sen karar veriyormuşsun gibi düşün).
+        3. Hikayeyi ilerlet ve onları yeni bir seçimle, tehlikeyle veya gizemle baş başa bırakıp "Ne yapıyorsunuz?" diye sor.
+        4. Cevabın çok uzun olmasın (maksimum 3 paragraf). REIGN'in elit ve karanlık dilini koru. Teknolojik terim kullanma.
+        """
+
+        try:
+            response = await ai_client.aio.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            dm_cevabi = response.text.strip()
+            
+            # Hafızayı güncelle (Eski hikayeyi silip yenisini özet olarak aklında tutsun ki şişmesin)
+            session['history'] = dm_cevabi 
+            session['current_actions'] = [] # Hamleleri sıfırla
+            session['turn'] += 1
+
+            embed = discord.Embed(
+                title=f"📜 REIGN Macera Kayıtları - Tur {session['turn']}",
+                description=f"{dm_cevabi}",
+                color=0x8b0000 # Kan kırmızısı
+            )
+            embed.set_footer(text=f"Oyuncular: {', '.join(session['players'])} | Hamle yapmak için /do komutunu kullanın.")
+            
+            await interaction.followup.send(embed=embed, view=FRPGameView(self.host_id, self.channel_id))
+            
+            # Eski butonları devre dışı bırakmak istersen (isteğe bağlı)
+            for child in self.children:
+                child.disabled = True
+            await interaction.message.edit(view=self)
+
+        except Exception as e:
+            print(f"FRP Hatası: {e}")
+            await interaction.followup.send("Karanlık şu an zihnini okuyamıyor... (Sistem hatası)")
+
+    @discord.ui.button(label="Macerayı Bitir", style=discord.ButtonStyle.danger, custom_id="frp_end", emoji="🛑")
+    async def end_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.host_id:
+            return await interaction.response.send_message("Sadece oyunu başlatan kişi bitirebilir.", ephemeral=True)
+        
+        if self.channel_id in frp_sessions:
+            del frp_sessions[self.channel_id]
+        
+        embed = discord.Embed(title="Mühürlendi", description="Macera burada sona erdi. REIGN'in gölgeleri arasına karıştınız.", color=0x000000)
+        await interaction.response.send_message(embed=embed)
+        
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
+
+# 2. FRP LOBİ BUTONLARI (Katıl ve Başlat)
+class FRPLobbyView(discord.ui.View):
+    def __init__(self, host_id, channel_id):
+        super().__init__(timeout=600)
+        self.host_id = host_id
+        self.channel_id = channel_id
+
+    @discord.ui.button(label="Katıl / Ayrıl", style=discord.ButtonStyle.secondary, custom_id="frp_join", emoji="🗡️")
+    async def join_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        session = frp_sessions.get(self.channel_id)
+        if not session or session.get("is_active"):
+            return await interaction.response.send_message("Katılabilecek bir lobi yok veya oyun çoktan başladı.", ephemeral=True)
+        
+        user_name = interaction.user.display_name
+        if user_name in session['players']:
+            session['players'].remove(user_name)
+            await interaction.response.send_message(f"Gölgelerden çekildin, {user_name}.", ephemeral=True)
+        else:
+            session['players'].append(user_name)
+            await interaction.response.send_message(f"Masaya oturdun, {user_name}.", ephemeral=True)
+
+    @discord.ui.button(label="Macerayı Başlat", style=discord.ButtonStyle.success, custom_id="frp_start", emoji="🔥")
+    async def start_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.host_id:
+            return await interaction.response.send_message("Sadece Macerayı kuran kişi başlatabilir.", ephemeral=True)
+        
+        session = frp_sessions.get(self.channel_id)
+        if not session or len(session['players']) == 0:
+            return await interaction.response.send_message("Masada kimse yok! Oyuncuların katılmasını bekleyin.", ephemeral=True)
+        
+        await interaction.response.defer()
+        
+        # Oyunu aktif et
+        session["is_active"] = True
+        oyuncu_listesi = ", ".join(session['players'])
+        
+        prompt = f"""
+        Sen REIGN evreninin Zindan Ustasısın (Dungeon Master). 
+        Bugün masanda şu oyuncular var: {oyuncu_listesi}
+        
+        Görev: Karanlık, gizemli, hafif fantastik veya Lovecraftian bir başlangıç hikayesi yaz.
+        - Ortamı, kokuyu, tehlikeyi betimle. 
+        - Oyuncuların kendini bir anda belanın ortasında veya gizemli bir yerde bulmasını sağla.
+        - En sonda "Ne yapıyorsunuz?" diye sor.
+        - Teknolojik terim kullanma, asil ve tekinsiz bir dil kullan.
+        """
+
+        try:
+            response = await ai_client.aio.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            dm_cevabi = response.text.strip()
+            session['history'] = dm_cevabi
+
+            embed = discord.Embed(
+                title="📜 REIGN Macerası Başlıyor...",
+                description=f"{dm_cevabi}",
+                color=0x8b0000
+            )
+            embed.set_footer(text=f"Kaderinizi seçin. Hamle yapmak için /do komutunu kullanın.")
+            
+            await interaction.followup.send(embed=embed, view=FRPGameView(self.host_id, self.channel_id))
+            
+            # Lobi butonlarını kapat
+            for child in self.children:
+                child.disabled = True
+            await interaction.message.edit(view=self)
+
+        except Exception as e:
+            print(f"FRP Başlatma Hatası: {e}")
+            await interaction.followup.send("Karanlık reddetti... (Sistem hatası)")
+
+# 3. FRP KOMUTLARI
+@bot.tree.command(name="frp_baslat", description="REIGN evreninde yeni bir FRP macerası (Text Adventure) başlat.")
+async def frp_baslat(interaction: discord.Interaction):
+    channel_id = interaction.channel_id
+    
+    # Kanalda zaten bir oyun var mı kontrol et
+    if channel_id in frp_sessions:
+        return await interaction.response.send_message("Bu kanalda zaten devam eden veya kurulan bir macera var. Önce onu bitirin.", ephemeral=True)
+
+    # Yeni lobi oluştur
+    frp_sessions[channel_id] = {
+        "host_id": interaction.user.id,
+        "is_active": False,
+        "players": [],
+        "current_actions": [],
+        "history": "",
+        "turn": 0
+    }
+
+    embed = discord.Embed(
+        title="🎲 Masaya Davet",
+        description=f"**{interaction.user.display_name}** yeni bir macera başlattı.\nKaderin zarları atılmak üzere. Katılmak için aşağıdaki butona basın. Herkes hazır olduğunda kurucu oyunu başlatabilir.",
+        color=0x2b2b2b
+    )
+    
+    await interaction.response.send_message(embed=embed, view=FRPLobbyView(interaction.user.id, channel_id))
+
+
+@bot.tree.command(name="do", description="Aktif FRP macerasında karakterinin ne yapacağını belirle.")
+@app_commands.describe(eylem="Örn: Kılıcımı çekip goblinin üstüne atlarım.")
+async def do(interaction: discord.Interaction, eylem: str):
+    session = frp_sessions.get(interaction.channel_id)
+    
+    if not session or not session.get("is_active"):
+        return await interaction.response.send_message("Şu an devam eden bir macera yok veya lobi aşamasında.", ephemeral=True)
+    
+    if interaction.user.display_name not in session['players']:
+        return await interaction.response.send_message("Oyunda değilsin! Dışarıdan müdahale edemezsin.", ephemeral=True)
+
+    # Oyuncunun hamlesini kaydet
+    hamle_metni = f"**{interaction.user.display_name}**: {eylem}"
+    session['current_actions'].append(hamle_metni)
+
+    await interaction.response.send_message(f"🎲 {hamle_metni}")
+
+@bot.tree.command(name="frp_bitir", description="Aktif kanaldaki FRP macerasını tamamen sonlandırır ve hafızayı temizler.")
+async def frp_bitir(interaction: discord.Interaction):
+    channel_id = interaction.channel_id
+    
+    if channel_id not in frp_sessions:
+        return await interaction.response.send_message("❌ Bu kanalda zaten devam eden aktif bir macera bulunmuyor.", ephemeral=True)
+    
+    session = frp_sessions[channel_id]
+    
+    if interaction.user.id != session["host_id"] and interaction.user.id != 211215301059149824:
+        return await interaction.response.send_message("⚠️ Bu macerayı sadece oyunu kuran kişi veya sunucu sahibi sonlandırabilir.", ephemeral=True)
+    
+    del frp_sessions[channel_id]
+    
+    embed = discord.Embed(
+        title="🛑 Kıyamet ve Sessizlik",
+        description="REIGN Zindan Ustası günlüğü kapattı, mührü kırdı. Yaşanan tüm anılar ve gölgeler hafızadan tamamen silindi. Masadan kalkabilirsiniz.",
+        color=0x000000
+    )
+    embed.set_footer(text="REIGN Macera Motoru Temizlendi")
+    
+    await interaction.response.send_message(embed=embed)
+
 if __name__ == "__main__":
     keep_alive()  # Botu çalıştırmadan önce web sunucusunu aç
     bot.run(DISCORD_TOKEN)
