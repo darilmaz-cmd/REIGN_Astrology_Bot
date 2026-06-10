@@ -513,6 +513,82 @@ async def frp_bitir(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
+# --- BÖLÜM 5: KARŞILAMA VE REHBER SİSTEMİ ---
+
+@bot.event
+async def on_member_join(member):
+    # DİKKAT: Buradaki ID'leri kendi sunucundaki kanallara sağ tıklayıp 'Kanal Kimliğini Kopyala' diyerek DEĞİŞTİRMELİSİN!
+    SOHBET_KANALI_ID = 847166635915345950      # #💬│sohbet kanalının ID'si
+    ROL_ALMA_KANALI_ID = 1513358367337484350    # #🔮│rol・alma kanalının ID'si
+    KEHANET_KANALI_ID = 1513541051766276106     # #🔮│günlük・kehanetler kanalının ID'si
+
+    sohbet_kanali = bot.get_channel(SOHBET_KANALI_ID)
+
+    if sohbet_kanali:
+        embed = discord.Embed(
+            title=f"🌒 REIGN Evrenine Hoş Geldin",
+            description=f"Gölgelerin arasındaki yeni sığınağına adım attın, {member.mention}. Ancak burada sıradanlara yer yok. REIGN sistemine entegre olabilmek için izlemen gereken yollar var:",
+            color=0x2b2b2b
+        )
+        
+        embed.add_field(
+            name="🎭 1. Kimliğini Belirle",
+            value=f"<#{ROL_ALMA_KANALI_ID}> kanalına gidip burçlarını ve unvanlarını seç. Yapay Zeka Kahinimiz ve Zindan Ustamız seni bu rollere göre tanıyacak ve sana ona göre hitap edecektir.",
+            inline=False
+        )
+        embed.add_field(
+            name="🔮 2. Kaderini Öğren",
+            value=f"Rollerini aldıktan sonra <#{KEHANET_KANALI_ID}> kanalına giderek `/kehanet` yaz. REIGN'in dijital kahini, aurana ve rollerine bakarak sana özel karanlık fısıltılar sunacak.",
+            inline=False
+        )
+        embed.add_field(
+            name="🌌 3. Aura Gücünü Yükselt",
+            value="Bu sunucuda konuştukça gizlice 'Aura Puanı' kazanırsın. Belirli eşikleri aştığında sistem sana otomatik olarak daha elit roller verecektir.",
+            inline=False
+        )
+        
+        embed.set_footer(text="Sistemin tüm sırlarını öğrenmek için sohbete /reignyardim yazabilirsin.")
+        embed.set_thumbnail(url=member.display_avatar.url) # Gelen kişinin profil fotoğrafını küçük ikon yapar
+
+        await sohbet_kanali.send(content=f"{member.mention}", embed=embed)
+
+@bot.tree.command(name="reignyardim", description="REIGN sisteminin sunduğu tüm mistik ve teknolojik özellikleri gösterir.")
+async def reignyardim(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="📜 REIGN Kadim Sistem Rehberi",
+        description="Bu sunucuda sadece sohbet etmezsin, yaşarsın. İşte REIGN botunun sana sunduğu araçlar:",
+        color=0x8b0000 # Kan kırmızısı
+    )
+    
+    embed.add_field(
+        name="🔮 `/kehanet`", 
+        value="Rollerine ve Aura puanına göre Kahin'den sana özel, iğneleyici ve karanlık bir kehanet alırsın.", 
+        inline=False
+    )
+    embed.add_field(
+        name="🌌 `!aura` & Pasif Aura Sistemi", 
+        value="Sohbet ettikçe gizlice Aura kazanırsın (Spam yaparsan -50 ceza yersin). `!aura` yazarak puanını görebilirsin. Eşikleri aşarak özel rollere ulaş.", 
+        inline=False
+    )
+    embed.add_field(
+        name="🎭 `/uyum [@kişi]`", 
+        value="İki kişinin güneş ve yükselen burçlarına göre REIGN astroloğundan acımasız bir uyum analizi alırsın.", 
+        inline=False
+    )
+    embed.add_field(
+        name="🎲 `/frp_baslat` & `/do`", 
+        value="Yapay Zeka Zindan Ustası eşliğinde kanalda interaktif bir hikaye (FRP) başlatır. Başladıktan sonra `/do [eylem]` yazarak hamle yaparsın.", 
+        inline=False
+    )
+    embed.add_field(
+        name="🛑 `/frp_bitir`", 
+        value="Devam eden macerayı sonlandırır ve sistemi temizler (Sadece yetkililer veya kurucu).", 
+        inline=False
+    )
+    
+    embed.set_footer(text="REIGN - Karanlıkta Parlayanların Sığınağı")
+    await interaction.response.send_message(embed=embed)
+
 if __name__ == "__main__":
     keep_alive()  # Botu çalıştırmadan önce web sunucusunu aç
     bot.run(DISCORD_TOKEN)
