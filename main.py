@@ -243,7 +243,7 @@ async def uyum(interaction: discord.Interaction, hedef_kullanici: discord.Member
         print(e)
         await interaction.followup.send("Sistemsel bir anomali oluştu. Lütfen botun konsoluna (terminal) bak.")
 
-# --- BÖLÜM 2: AURA SİSTEMİ (TAMAMLANMIŞ) ---
+# --- BÖLÜM 2: AURA VE İNTERAKTİF TEPKİ SİSTEMİ ---
 
 # Kullanıcıların mesaj zamanlarını tutmak için bir sözlük
 message_history = {}
@@ -254,10 +254,53 @@ async def on_message(message):
         await bot.process_commands(message)
         return
 
+    # --- KANALLARA ÖZEL İNTERAKTİF TEPKİLER (Sıfır API Yükü!) ---
+    # DİKKAT: Kendi sunucundaki Kumarhane ve Yönetmenler odasının ID'sini buraya yapıştır!
+    KUMARHANE_KANALI_ID = 1513309860773498941 
+    YONETMENLER_KANALI_ID = 1513465089162743870 
+    SOHBET_KANALI_ID = 847166635915345950
+
+    # 1. Kumarhane Tepkisi (OwO vb. kelimeler geçtiğinde %10 İhtimal)
+    if message.channel.id == KUMARHANE_KANALI_ID:
+        mesaj_icerik = message.content.lower()
+        if "owo" in mesaj_icerik or "slot" in mesaj_icerik or "bj" in mesaj_icerik or "cf" in mesaj_icerik:
+            if random.random() < 0.10: # %10 İhtimal
+                tepkiler = [
+                    f"Vaay... {message.author.mention} yine gölgelerde kumar oynuyor. Kralımızın kulağına gitmesin, hain damgası yiyebilirsin...",
+                    f"Zarlar atıldı {message.author.mention}... Ama REIGN evreninde kasa her zaman ruhunu alır.",
+                    f"Gölgeler bana {message.author.mention}'ın tüm servetini riske attığını fısıldıyor. Dikkat et, borcunu kanla ödemek zorunda kalma.",
+                    f"Ne.. yine mi kumar.. {message.author.mention}, şansın bol olsun.. belki bana da 3-5 bir şey verirsin ha? Sana güzel kehanetler verebilirim ;)"
+                ]
+                await message.channel.send(random.choice(tepkiler))
+
+    # 2. Yönetmenler Odası (Video/Fotoğraf veya Link Atıldığında %15 İhtimal)
+    elif message.channel.id == YONETMENLER_KANALI_ID:
+        if len(message.attachments) > 0 or "http" in message.content:
+            if random.random() < 0.30: # %30 İhtimal
+                tepkiler = [
+                    f"Muazzam bir vizyon {message.author.mention}... Kralımızın gözleri yaşardı. Gölgeler bu eseri unutmayacak.",
+                    f"İşte REIGN'in karanlık arşivlerine layık bir parça. {message.author.mention}, sanatın kan dondurucu...",
+                    f"Yine bir gönderi mi.. REIGN'in tebaalarının her gün artması hayret verici, ama her zaman kralımızın gözdesi ben olacağım *-*.",
+                    f"Bu ne güzellik böyle? Herkes sussun ve {message.author.mention}'ın vizyonuna şahitlik etsin."
+                ]
+                await message.channel.send(random.choice(tepkiler))
+
+    # 3. Genel Sohbet Odası (Rastgele Lafa Karışma %5 İhtimal)
+    elif message.channel.id == SOHBET_KANALI_ID:
+        if random.random() < 0.05: # %5 İhtimal (Çok sık yazıp insanları darlamasın diye düşük tuttum)
+            tepkiler = [
+                "Nedir bu ses? Neler oluyor... Hmm... Vaay... Krallık bugün canlanmış.",
+                f"Ah.. sizi haylazlar, krallıktaki dedikodularınız arşa çıktı! Uyandığım yerden kalktım.. *-*",
+                "Gölgelerden sizi izliyorum... Konuşun, dökülün bakalım.",
+                f"Ah, {message.author.mention}... Sesin bugün çok çıkıyor. Karanlık seni fark etmeden biraz sussan iyi edersin.",
+                "Bu ne gürültü? REIGN'in elit sessizliğini bozuyorsunuz sefiller..."
+            ]
+            await message.channel.send(random.choice(tepkiler))
+            
+    # --- ANTI-SPAM VE CEZA SİSTEMİ ---
     user_id = message.author.id
     now = datetime.utcnow()
 
-    # --- ANTI-SPAM VE CEZA SİSTEMİ ---
     if user_id not in message_history:
         message_history[user_id] = []
 
@@ -283,7 +326,7 @@ async def on_message(message):
 
     new_points = user_data["aura_points"]
 
-    # --- ROL KONTROL (Bu kısmı mutlaka ekle!) ---
+    # --- ROL KONTROL ---
     for threshold, role_id in ROLE_THRESHOLDS.items():
         if new_points >= threshold:
             role = message.guild.get_role(role_id)
