@@ -22,6 +22,7 @@ from google import genai
 import re 
 import os
 import random
+import datetime
 from pymongo import MongoClient
 
 mongo_uri = os.getenv('MONGO_URI')
@@ -58,8 +59,12 @@ class ReignBot(commands.Bot):
         print("✦ Slash komutları REIGN sistemine senkronize edildi.")
         self.sabah_bulteni.start()
 
-    # --- BÖLÜM 6: SABAH BÜLTENİ VE AURA SIRALAMASI ---
-    @tasks.loop(hours=24)
+   # --- BÖLÜM 6: SABAH BÜLTENİ VE AURA SIRALAMASI ---
+    # Türkiye saati ile her gün öğlen 12:00'da atması için UTC 09:00 ayarlanır. 
+    # Saati değiştirmek istersen hour kısmını Türkiye saatinden 3 saat geriye kur.
+    bulten_saati = datetime.time(hour=9, minute=0, tzinfo=datetime.timezone.utc)
+
+    @tasks.loop(time=bulten_saati)
     async def sabah_bulteni(self):
         # 1. KANAL KONTROLÜ
         kanal_id = 1513541051766276106 # #🔮│günlük・kehanetler kanalının ID'si
