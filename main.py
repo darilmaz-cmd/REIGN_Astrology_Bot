@@ -525,7 +525,7 @@ class FRPGameView(discord.ui.View):
         
         Görev:
         1. Bu hamlelerin sonuçlarını mantıklı, acımasız ve karanlık bir şekilde anlat.
-        2. EĞER OYUN MODU 'Zarlı' İSE: Hamlelerin başındaki [Kader Zarı: X] değerlerini mutlak başarı kriteri al (20 olağanüstü başarı, 1 felaket/sakarca başarısızlık). Zarlara sadık kal.
+        2. EĞER OYUN MODU 'Zarlı' İSE: Hamlelerin içindeki [Kader Zarı: X] değerlerini mutlak başarı kriteri al (20 olağanüstü başarı, 1 felaket/sakarca başarısızlık). Zarlara sadık kal.
         3. EĞER OYUN MODU 'Zarsız' İSE: Masada zar yoktur, hamlelerin başarı veya başarısızlık durumuna tamamen kendi zekana ve REIGN evreninin mantığına göre sen karar ver.
         4. Hikayeyi ilerlet ve onları yeni bir tehlikeyle baş başa bırakıp "Ne yapıyorsunuz?" diye sor. Cevabın maks 3 paragraf olsun, tekinsiz bir dil kullan.
         """
