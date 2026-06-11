@@ -473,16 +473,31 @@ class FRPGameView(discord.ui.View):
         if interaction.user.display_name not in session['players']:
             return await interaction.response.send_message("Bu macerada yer almıyorsun!", ephemeral=True)
             
-        # Aynı turda mükerrer zar atmayı engelleme kontrolü
-        for action in session["current_actions"]:
-            if f"**{interaction.user.display_name}**: [Kader Zarı:" in action:
-                return await interaction.response.send_message("Bu tur zaten zar attın! Şimdi hamleni `/do` ile yazmalısın.", ephemeral=True)
+        # MANTIKSAL KİLİT: Kullanıcının bu tur /do komutu kullanıp kullanmadığını kontrol et
+        kullanici_hamlesi_var_mi = False
+        zar_atilmis_mi = False
+        hamle_index = -1
+
+        for idx, action in enumerate(session["current_actions"]):
+            if action.startswith(f"**{interaction.user.display_name}**:"):
+                kullanici_hamlesi_var_mi = True
+                hamle_index = idx
+                if "[Kader Zarı:" in action:
+                    zar_atilmis_mi = True
+                break
+                
+        if not kullanici_hamlesi_var_mi:
+            return await interaction.response.send_message("❌ **Önce hamleni belirtmelisin!** Lütfen `/do` komutu ile ne yapacağını yaz. Ardından zarlarını atabilirsin.", ephemeral=True)
+            
+        if zar_atilmis_mi:
+            return await interaction.response.send_message("⚠️ Bu tur hamlen için zaten zar attın! Zindan Ustasının turu ilerletmesini bekle.", ephemeral=True)
         
         zar_sonuc = random.randint(1, 20)
-        hamle_metni = f"**{interaction.user.display_name}**: [Kader Zarı: {zar_sonuc}]"
-        session['current_actions'].append(hamle_metni)
         
-        await interaction.response.send_message(f"🎲 {interaction.user.mention} kader zarını fırlattı ve **{zar_sonuc}** attı! Şimdi hamleni `/do` komutu ile tamamlayabilirsin.")
+        # Hamlenin sonuna zar sonucunu ekle
+        session['current_actions'][hamle_index] += f" [Kader Zarı: {zar_sonuc}]"
+        
+        await interaction.response.send_message(f"🎲 **{interaction.user.display_name}** eylemi için kader zarını fırlattı ve **{zar_sonuc}** attı!")
 
     @discord.ui.button(label="Sonraki Tur", style=discord.ButtonStyle.primary, custom_id="frp_next", emoji="⏩")
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -700,10 +715,16 @@ async def do(interaction: discord.Interaction, eylem: str):
     if interaction.user.display_name not in session['players']:
         return await interaction.response.send_message("Oyunda değilsin! Dışarıdan müdahale edemezsin.", ephemeral=True)
 
+    # Aynı tur içinde birden fazla hamle yapılmasını engelle
+    for action in session['current_actions']:
+        if action.startswith(f"**{interaction.user.display_name}**:"):
+            return await interaction.response.send_message("⚠️ Bu tur zaten hamleni yaptın. Eğer Zarlı moddaysanız 'Zar At' butonuna basın veya turu ilerletmeyi bekleyin.", ephemeral=True)
+
     hamle_metni = f"**{interaction.user.display_name}**: {eylem}"
     session['current_actions'].append(hamle_metni)
 
-    await interaction.response.send_message(f"🎲 {hamle_metni}")
+    # Eylem atıldığında karışıklık olmasın diye emoji 🗡️ (Kılıç) olarak değiştirildi
+    await interaction.response.send_message(f"🗡️ {hamle_metni}")
 
 
 @bot.tree.command(name="frp_bitir", description="Aktif kanaldaki FRP macerasını tamamen sonlandırır ve hafızayı temizler.")
